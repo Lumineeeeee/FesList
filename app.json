@@ -10,7 +10,6 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "cn.fes.boothlist",
-      "buildNumber": "1",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
