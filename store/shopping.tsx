@@ -19,6 +19,8 @@ type ShoppingValue = {
   ready: boolean;
   /** 当前漫展的条目 */
   items: BuyItem[];
+  /** 全部漫展的条目，同步用 */
+  allItems: BuyItem[];
   add: (boothId: string, title: string, price?: string) => void;
   update: (
     id: string,
@@ -27,6 +29,8 @@ type ShoppingValue = {
   toggle: (id: string) => void;
   remove: (id: string) => void;
   clearDone: () => void;
+  /** 从服务器拉回来的数据整体替换 */
+  replaceAll: (next: BuyItem[]) => void;
 };
 
 const ShoppingContext = createContext<ShoppingValue | null>(null);
@@ -121,9 +125,13 @@ export function ShoppingProvider({ children }: { children: ReactNode }) {
     setAll((prev) => prev.filter((it) => !it.done || it.eventId !== current.id));
   }, [current.id]);
 
+  const replaceAll = useCallback((next: BuyItem[]) => {
+    setAll(next);
+  }, []);
+
   const value = useMemo<ShoppingValue>(
-    () => ({ ready, items, add, update, toggle, remove, clearDone }),
-    [ready, items, add, update, toggle, remove, clearDone],
+    () => ({ ready, items, allItems: all, add, update, toggle, remove, clearDone, replaceAll }),
+    [ready, items, all, add, update, toggle, remove, clearDone, replaceAll],
   );
 
   return <ShoppingContext.Provider value={value}>{children}</ShoppingContext.Provider>;

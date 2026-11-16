@@ -25,6 +25,7 @@ export default function RootLayout() {
               <Stack.Screen name="upload" options={{ presentation: 'modal' }} />
               <Stack.Screen name="edit-item" options={{ presentation: 'modal' }} />
               <Stack.Screen name="events" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="sync" options={{ presentation: 'modal' }} />
             </Stack>
           </ShoppingProvider>
         </UploadsProvider>

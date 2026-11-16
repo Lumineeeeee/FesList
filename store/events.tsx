@@ -34,6 +34,8 @@ type EventsValue = {
   switchTo: (id: string) => void;
   create: (name: string, date?: string, venue?: string) => FestivalEvent;
   rename: (id: string, patch: Partial<Pick<FestivalEvent, 'name' | 'date' | 'venue'>>) => void;
+  /** 从服务器拉回来的数据整体替换 */
+  replaceAll: (next: FestivalEvent[], currentId?: string) => void;
 };
 
 const EventsContext = createContext<EventsValue | null>(null);
@@ -124,14 +126,25 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     [persist, currentId],
   );
 
+  const replaceAll = useCallback(
+    (next: FestivalEvent[], nextCurrentId?: string) => {
+      if (!next.length) return;
+      const id = nextCurrentId && next.some((e) => e.id === nextCurrentId) ? nextCurrentId : next[0].id;
+      setEvents(next);
+      setCurrentId(id);
+      persist(next, id);
+    },
+    [persist],
+  );
+
   const current = useMemo(
     () => events.find((e) => e.id === currentId) ?? events[0] ?? DEFAULT_EVENT,
     [events, currentId],
   );
 
   const value = useMemo<EventsValue>(
-    () => ({ ready, events, current, switchTo, create, rename }),
-    [ready, events, current, switchTo, create, rename],
+    () => ({ ready, events, current, switchTo, create, rename, replaceAll }),
+    [ready, events, current, switchTo, create, rename, replaceAll],
   );
 
   return <EventsContext.Provider value={value}>{children}</EventsContext.Provider>;

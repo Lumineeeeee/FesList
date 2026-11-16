@@ -69,3 +69,22 @@ export async function deleteImage(key: string): Promise<void> {
   await drop(db, key.slice(PREFIX.length)).catch(() => {});
   db.close();
 }
+
+/** 读成 base64，用于上传到服务器；远程地址或读不到时返回 null */
+export async function readImageBase64(key: string): Promise<string | null> {
+  if (!key.startsWith(PREFIX)) return null;
+  const db = await openDb();
+  const blob = await get(db, key.slice(PREFIX.length)).catch(() => null);
+  db.close();
+  if (!blob) return null;
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const raw = String(reader.result ?? '');
+      const comma = raw.indexOf(',');
+      resolve(comma >= 0 ? raw.slice(comma + 1) : null);
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(blob);
+  });
+}

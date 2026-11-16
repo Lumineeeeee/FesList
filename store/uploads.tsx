@@ -18,7 +18,7 @@ const STORAGE_KEY = 'fes-list/uploads/v2';
 const SEEDED_KEY = 'fes-list/uploads/seeded/v4';
 
 /** 落盘的记录：只存 key，不存地址 */
-type StoredUpload = {
+export type StoredUpload = {
   id: string;
   /** 属于哪一场漫展 */
   eventId: string;
@@ -46,11 +46,15 @@ type UploadsValue = {
   ready: boolean;
   /** 当前漫展的图片 */
   uploads: Upload[];
+  /** 全部图片（含 imageKey），同步用 */
+  allUploads: Upload[];
   add: (input: UploadInput) => Promise<Upload>;
   replace: (id: string, imageUri: string) => Promise<void>;
   /** 把某张图设为同摊位优先展示 */
   setPrimary: (id: string) => void;
   remove: (id: string) => void;
+  /** 从服务器拉回来的数据整体替换 */
+  replaceAll: (next: StoredUpload[]) => Promise<void>;
 };
 
 const UploadsContext = createContext<UploadsValue | null>(null);
@@ -209,9 +213,20 @@ export function UploadsProvider({ children }: { children: ReactNode }) {
 
   const uploads = useMemo(() => all.filter((u) => u.eventId === current.id), [all, current.id]);
 
+  const replaceAll = useCallback(
+    async (next: StoredUpload[]) => {
+      const resolved = await Promise.all(
+        next.map(async (s) => ({ ...s, imageUri: await loadImage(s.imageKey) })),
+      );
+      setAll(resolved);
+      persist(resolved);
+    },
+    [persist],
+  );
+
   const value = useMemo<UploadsValue>(
-    () => ({ ready, uploads, add, replace, setPrimary, remove }),
-    [ready, uploads, add, replace, setPrimary, remove],
+    () => ({ ready, uploads, allUploads: all, add, replace, setPrimary, remove, replaceAll }),
+    [ready, uploads, all, add, replace, setPrimary, remove, replaceAll],
   );
 
   return <UploadsContext.Provider value={value}>{children}</UploadsContext.Provider>;

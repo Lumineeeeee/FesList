@@ -30,3 +30,13 @@ export async function deleteImage(key: string): Promise<void> {
   if (!FileSystem.documentDirectory) return;
   await FileSystem.deleteAsync(key, { idempotent: true }).catch(() => {});
 }
+
+/** 读成 base64，用于上传到服务器；远程地址或读不到时返回 null */
+export async function readImageBase64(key: string): Promise<string | null> {
+  if (/^https?:/i.test(key)) return null;
+  try {
+    return await FileSystem.readAsStringAsync(key, { encoding: 'base64' });
+  } catch {
+    return null;
+  }
+}
