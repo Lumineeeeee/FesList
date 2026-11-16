@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "FES 逛展清单",
+    "slug": "fes-list",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "feslist",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "cn.fes.boothlist",
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "cn.fes.boothlist",
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "static"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "7c9d0d4f-b78d-400a-92c5-ff72d4b14500"
+      }
+    },
+    "owner": "lumineeeeee698"
+  }
+}
