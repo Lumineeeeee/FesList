@@ -11,6 +11,7 @@ import {
 
 import { buildPromoSeed, type SeedRecord } from '@/data/promoSeed';
 import { deleteImage, loadImage, saveImage } from '@/lib/imageStore';
+import { migrateBoothId } from '@/lib/boothId';
 import { DEFAULT_EVENT, useEvents } from '@/store/events';
 
 const STORAGE_KEY = 'fes-list/uploads/v2';
@@ -77,6 +78,7 @@ export function UploadsProvider({ children }: { children: ReactNode }) {
             stored = (parsed as StoredUpload[]).map((s) => ({
               ...s,
               eventId: s.eventId ?? DEFAULT_EVENT.id,
+              boothId: migrateBoothId(s.boothId),
             }));
           }
         }
@@ -97,7 +99,7 @@ export function UploadsProvider({ children }: { children: ReactNode }) {
             .map((s) => ({
               id: s.id,
               eventId: DEFAULT_EVENT.id,
-              boothId: s.boothId,
+              boothId: migrateBoothId(s.boothId),
               title: s.title,
               primary: s.primary,
               imageKey: s.imageKey,

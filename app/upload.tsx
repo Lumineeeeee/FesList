@@ -16,9 +16,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BOOTH_BY_ID } from '@/data/booths';
 import { normalizeBooth } from '@/lib/boothInput';
 import { promoNoun } from '@/lib/promoLabel';
+import { useHalls } from '@/store/halls';
 import { useUploads } from '@/store/uploads';
 import { theme, typo } from '@/theme';
 
@@ -65,8 +65,9 @@ export default function UploadScreen() {
     return () => document.removeEventListener('paste', onPaste);
   }, []);
 
-  const boothId = useMemo(() => normalizeBooth(booth), [booth]);
-  const boothName = boothId ? BOOTH_BY_ID.get(boothId)?.name : undefined;
+  const { currentHall, boothName: nameOf } = useHalls();
+  const boothId = useMemo(() => normalizeBooth(booth, currentHall.id), [booth, currentHall.id]);
+  const boothName = boothId ? nameOf(boothId) : undefined;
   const isMap = (boothId ?? replaceTarget?.boothId) === 'MAP';
   const noun = promoNoun(boothId ?? replaceTarget?.boothId);
   const boothInvalid = booth.trim().length > 0 && !boothId;

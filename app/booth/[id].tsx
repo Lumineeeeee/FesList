@@ -6,6 +6,7 @@ import {
   Alert,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -16,10 +17,12 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import PromoViewer from '@/components/PromoViewer';
 import PriorityChip from '@/components/PriorityChip';
-import { BOOTH_BY_ID } from '@/data/booths';
+import PromoViewer from '@/components/PromoViewer';
+import { cellOf, hallOfBooth, isSpecial } from '@/lib/boothId';
 import { nextPriority, sortByPriority } from '@/lib/priority';
+import { useHalls } from '@/store/halls';
+import { useLinks } from '@/store/links';
 import { useShopping } from '@/store/shopping';
 import { useBoothUploads, useUploads } from '@/store/uploads';
 import { theme, typo } from '@/theme';
@@ -34,28 +37,46 @@ export default function BoothScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams<{ id: string | string[] }>();
-  const id = Array.isArray(params.id) ? params.id[0] : params.id;
+  const raw = Array.isArray(params.id) ? params.id[0] : params.id;
+  const id = raw ? decodeURIComponent(raw) : undefined;
 
-  const booth = id ? BOOTH_BY_ID.get(id) : undefined;
+  const { items, add, toggle, remove, update } = useShopping();
+  const { remove: removeUpload } = useUploads();
+  const { boothName, hallOf, setBoothName } = useHalls();
+  const { linksOf, add: addLink, remove: removeLink, update: updateLink } = useLinks();
+
   const uploaded = useBoothUploads(id);
   const promos = useMemo(() => uploaded.map((u) => ({ uri: u.imageUri })), [uploaded]);
   const cover = promos[0];
-  const { items, add, toggle, remove, update } = useShopping();
-  const { remove: removeUpload } = useUploads();
-  const [draft, setDraft] = useState('');
-  const [viewerOpen, setViewerOpen] = useState(false);
 
   const mine = useMemo(
     () => sortByPriority(items.filter((it) => it.boothId === id), (x) => x.title),
     [items, id],
   );
-  const doneCount = mine.filter((it) => it.done).length;
+
+  const [draft, setDraft] = useState('');
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+  const [linkTitle, setLinkTitle] = useState('');
+  const [linkUrl, setLinkUrl] = useState('');
+
+  const name = id ? boothName(id) : '';
+  const hall = id ? hallOf(hallOfBooth(id) ?? '') : undefined;
+  const links = id ? linksOf(id) : [];
 
   const submit = () => {
     if (!id || !draft.trim()) return;
     add(id, draft);
     setDraft('');
     buzz();
+  };
+
+  const submitLink = () => {
+    if (!id || !linkUrl.trim()) return;
+    addLink(id, linkTitle, linkUrl);
+    setLinkTitle('');
+    setLinkUrl('');
   };
 
   const confirmRemove = (itemId: string, title: string) => {
@@ -66,19 +87,16 @@ export default function BoothScreen() {
   };
 
   const confirmDeleteUpload = (uploadId: string) => {
-    Alert.alert('删除这张摊宣？', '删除后图片文件也会一起清掉', [
+    Alert.alert('删除这张图？', '删除后图片文件也会一起清掉', [
       { text: '取消', style: 'cancel' },
       { text: '删除', style: 'destructive', onPress: () => removeUpload(uploadId) },
     ]);
   };
 
-  if (!booth) {
+  if (!id) {
     return (
       <View style={[styles.screen, { paddingTop: insets.top + 20 }]}>
         <Text style={styles.title}>找不到这个摊位</Text>
-        <Pressable onPress={() => router.back()} style={styles.primaryBtn}>
-          <Text style={styles.primaryBtnText}>返回</Text>
-        </Pressable>
       </View>
     );
   }
@@ -97,96 +115,166 @@ export default function BoothScreen() {
         </View>
 
         <View style={styles.head}>
-          <View style={styles.idChip}>
-            <Text style={styles.idChipText}>{booth.id}</Text>
+          <View style={styles.headRow}>
+            <View style={styles.idChip}>
+              <Text style={styles.idChipText}>{cellOf(id)}</Text>
+            </View>
+            {!!hall && <Text style={styles.hallText}>{hall.name}</Text>}
+            {!isSpecial(id) && (
+              <Pressable
+                onPress={() => {
+                  setNameDraft(name);
+                  setEditingName(true);
+                }}
+                hitSlop={8}
+                style={{ marginLeft: 'auto' }}
+              >
+                <Ionicons name="pencil" size={15} color="#B7AF9A" />
+              </Pressable>
+            )}
           </View>
-          <Text style={styles.title}>{booth.name}</Text>
+
+          {editingName ? (
+            <TextInput
+              value={nameDraft}
+              onChangeText={setNameDraft}
+              autoFocus
+              onSubmitEditing={() => {
+                setBoothName(hall?.id ?? '', cellOf(id), nameDraft.trim());
+                setEditingName(false);
+              }}
+              onBlur={() => {
+                setBoothName(hall?.id ?? '', cellOf(id), nameDraft.trim());
+                setEditingName(false);
+              }}
+              style={styles.nameInput}
+              placeholder="摊位名"
+              placeholderTextColor="#B0AB99"
+            />
+          ) : (
+            <Text style={styles.title}>{name || '未命名摊位'}</Text>
+          )}
+
           <Text style={styles.sub}>
             {mine.length === 0
               ? '还没标记要买的东西'
-              : `要买 ${mine.length} 件 · 已买 ${doneCount} 件`}
+              : `要买 ${mine.length} 件 · 已买 ${mine.filter((i) => i.done).length} 件`}
           </Text>
         </View>
       </View>
 
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={styles.body}
-        keyboardShouldPersistTaps="handled"
-      >
-        <Text style={styles.sectionLabel}>摊宣</Text>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.body}>
+        <Text style={styles.sectionLabel}>图片</Text>
         {cover ? (
-          <Pressable
-            style={styles.promoCard}
-            onPress={() => setViewerOpen(true)}
-            accessibilityRole="imagebutton"
-            accessibilityLabel={`${booth.id} 摊宣图，点击放大`}
-          >
+          <Pressable style={styles.promoCard} onPress={() => setViewerOpen(true)}>
             <Image source={cover} style={styles.promoImage} resizeMode="contain" />
             <View style={styles.promoBadge}>
               <Ionicons name="expand-outline" size={12} color={theme.ink} />
               <Text style={styles.promoBadgeText}>
-                {promos && promos.length > 1 ? `${promos.length} 张 · 点开看` : '点开看大图'}
+                {promos.length > 1 ? `${promos.length} 张 · 点开看` : '点开看大图'}
               </Text>
             </View>
           </Pressable>
         ) : (
           <View style={styles.promoEmpty}>
             <Ionicons name="image-outline" size={22} color="#BDB8A6" />
-            <Text style={styles.promoEmptyText}>
-              还没有这个摊位的摊宣图{'\n'}把图放进 assets/promo/{booth.id}.jpg 后运行 npm run gen:promo
-            </Text>
+            <Text style={styles.promoEmptyText}>还没有图</Text>
           </View>
         )}
 
         <Pressable
-          style={styles.uploadRow}
-          onPress={() =>
-            router.push({ pathname: '/upload', params: { booth: booth.id } })
-          }
+          style={styles.actionRow}
+          onPress={() => router.push({ pathname: '/upload', params: { booth: cellOf(id) } })}
         >
           <Ionicons name="add-circle-outline" size={16} color={theme.ink} />
-          <Text style={styles.uploadRowText}>上传 / 更换摊宣</Text>
+          <Text style={styles.actionText}>上传图片</Text>
         </Pressable>
 
         {uploaded.length > 0 && (
-          <>
-            <Text style={[styles.sectionLabel, { marginTop: 16 }]}>
-              全部摊宣（{uploaded.length}）
-            </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.thumbRow}>
-                {uploaded.map((u) => (
-                  <View key={u.id} style={styles.thumbWrap}>
-                    <Image source={{ uri: u.imageUri }} style={styles.thumb} resizeMode="cover" />
-                    <Pressable
-                      onPress={() =>
-                        router.push({ pathname: '/upload', params: { replace: u.id } })
-                      }
-                      hitSlop={8}
-                      style={styles.thumbEdit}
-                    >
-                      <Ionicons name="create-outline" size={12} color="#FFFFFF" />
-                    </Pressable>
-                    <Pressable
-                      onPress={() => confirmDeleteUpload(u.id)}
-                      hitSlop={8}
-                      style={styles.thumbDel}
-                    >
-                      <Ionicons name="close" size={12} color="#FFFFFF" />
-                    </Pressable>
-                  </View>
-                ))}
-              </View>
-            </ScrollView>
-          </>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
+            <View style={styles.thumbRow}>
+              {uploaded.map((u) => (
+                <View key={u.id} style={styles.thumbWrap}>
+                  <Image source={{ uri: u.imageUri }} style={styles.thumb} resizeMode="cover" />
+                  <Pressable
+                    onPress={() => router.push({ pathname: '/upload', params: { replace: u.id } })}
+                    hitSlop={8}
+                    style={styles.thumbEdit}
+                  >
+                    <Ionicons name="create-outline" size={12} color="#FFFFFF" />
+                  </Pressable>
+                  <Pressable
+                    onPress={() => confirmDeleteUpload(u.id)}
+                    hitSlop={8}
+                    style={styles.thumbDel}
+                  >
+                    <Ionicons name="close" size={12} color="#FFFFFF" />
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          </ScrollView>
         )}
 
-        <Text style={[styles.sectionLabel, { marginTop: 18 }]}>要买</Text>
-        {mine.length === 0 ? (
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>在下面写下这个摊位要买的东西</Text>
+        <Text style={[styles.sectionLabel, { marginTop: 20 }]}>链接</Text>
+        {links.map((l) => (
+          <View key={l.id} style={styles.linkRow}>
+            <Pressable
+              style={{ flex: 1 }}
+              onPress={() => Linking.openURL(l.url).catch(() => {})}
+            >
+              <Text style={styles.linkTitle} numberOfLines={1}>
+                {l.title}
+              </Text>
+              <Text style={styles.linkUrl} numberOfLines={1}>
+                {l.url}
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                setLinkTitle(l.title);
+                setLinkUrl(l.url);
+                updateLink(l.id, {});
+              }}
+              hitSlop={8}
+              style={styles.rowIcon}
+            >
+              <Ionicons name="create-outline" size={14} color="#B7AF9A" />
+            </Pressable>
+            <Pressable onPress={() => removeLink(l.id)} hitSlop={8} style={styles.rowIcon}>
+              <Ionicons name="close" size={15} color="#B79C92" />
+            </Pressable>
           </View>
+        ))}
+
+        <View style={styles.linkForm}>
+          <TextInput
+            value={linkTitle}
+            onChangeText={setLinkTitle}
+            placeholder="名称，比如 摊位主页"
+            placeholderTextColor="#B0AB99"
+            style={[styles.input, { flex: 1 }]}
+          />
+          <TextInput
+            value={linkUrl}
+            onChangeText={setLinkUrl}
+            placeholder="https://…"
+            placeholderTextColor="#B0AB99"
+            style={[styles.input, { flex: 1.4 }]}
+            autoCapitalize="none"
+          />
+          <Pressable
+            onPress={submitLink}
+            disabled={!linkUrl.trim()}
+            style={[styles.addBtn, !linkUrl.trim() && styles.addBtnOff]}
+          >
+            <Ionicons name="add" size={18} color="#FFFFFF" />
+          </Pressable>
+        </View>
+
+        <Text style={[styles.sectionLabel, { marginTop: 20 }]}>要买</Text>
+        {mine.length === 0 ? (
+          <Text style={styles.emptyText}>在下面加要买的东西</Text>
         ) : (
           mine.map((it) => (
             <Pressable
@@ -233,14 +321,14 @@ export default function BoothScreen() {
                   })
                 }
                 hitSlop={10}
-                style={styles.delBtn}
+                style={styles.rowIcon}
               >
                 <Ionicons name="create-outline" size={15} color="#B7AF9A" />
               </Pressable>
               <Pressable
                 onPress={() => confirmRemove(it.id, it.title)}
                 hitSlop={12}
-                style={styles.delBtn}
+                style={styles.rowIcon}
               >
                 <Ionicons name="trash-outline" size={15} color="#B79C92" />
               </Pressable>
@@ -253,7 +341,7 @@ export default function BoothScreen() {
         <TextInput
           value={draft}
           onChangeText={setDraft}
-          placeholder="要买什么？比如：新刊 1 本"
+          placeholder="要买什么？"
           placeholderTextColor="#B0AB99"
           style={styles.input}
           returnKeyType="done"
@@ -263,17 +351,17 @@ export default function BoothScreen() {
         <Pressable
           onPress={submit}
           disabled={!draft.trim()}
-          style={[styles.addBtn, !draft.trim() && styles.addBtnDisabled]}
+          style={[styles.addBtn, !draft.trim() && styles.addBtnOff]}
         >
-          <Text style={styles.addBtnText}>添加</Text>
+          <Ionicons name="add" size={18} color="#FFFFFF" />
         </Pressable>
       </View>
 
       <PromoViewer
         visible={viewerOpen}
         sources={promos}
-        title={`${booth.id} · ${booth.name}`}
-        boothId={booth.id}
+        title={`${cellOf(id)} · ${name || '摊位'}`}
+        boothId={id}
         onClose={() => setViewerOpen(false)}
       />
     </KeyboardAvoidingView>
@@ -294,18 +382,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  head: { paddingHorizontal: 22, paddingTop: 12 },
-  idChip: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-    borderRadius: 7,
-    backgroundColor: theme.accent,
-  },
+  head: { paddingHorizontal: 22, paddingTop: 10 },
+  headRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  idChip: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 7, backgroundColor: theme.accent },
   idChipText: { ...typo.mono, color: theme.ink },
+  hallText: { ...typo.small, color: theme.sub },
   title: { ...typo.h1, color: theme.ink, marginTop: 8 },
+  nameInput: {
+    marginTop: 8,
+    height: 40,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    backgroundColor: theme.card,
+    borderWidth: 1,
+    borderColor: theme.ink,
+    ...typo.h2,
+    color: theme.ink,
+  },
   sub: { ...typo.small, color: theme.sub, marginTop: 5 },
-  body: { padding: 16, paddingTop: 10 },
+  body: { padding: 16, paddingTop: 12 },
   sectionLabel: { ...typo.mono, color: theme.sub, marginBottom: 8 },
   promoCard: {
     borderRadius: 16,
@@ -335,29 +430,72 @@ const styles = StyleSheet.create({
     borderColor: '#D3CFC0',
     backgroundColor: 'rgba(255,255,255,0.5)',
     paddingVertical: 26,
-    paddingHorizontal: 18,
     alignItems: 'center',
     gap: 8,
   },
-  promoEmptyText: {
-    ...typo.small,
-    color: '#A29D8C',
-    fontWeight: '500',
-    textAlign: 'center',
-    lineHeight: 17,
+  promoEmptyText: { ...typo.small, color: '#A29D8C' },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    marginTop: 10,
+    paddingVertical: 9,
+    borderRadius: 12,
+    backgroundColor: theme.accentSoft,
   },
-  empty: { paddingVertical: 26, alignItems: 'center' },
-  emptyText: { ...typo.small, color: theme.sub },
+  actionText: { ...typo.small, color: theme.ink, fontWeight: '800' },
+  thumbRow: { flexDirection: 'row', gap: 8, paddingVertical: 2 },
+  thumbWrap: { width: 72, height: 72, borderRadius: 12, overflow: 'hidden' },
+  thumb: { width: '100%', height: '100%' },
+  thumbEdit: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thumbDel: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  linkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: theme.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.line,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  linkTitle: { ...typo.body, color: theme.ink, fontWeight: '700' },
+  linkUrl: { ...typo.small, color: theme.sub, marginTop: 2 },
+  linkForm: { flexDirection: 'row', gap: 8, marginTop: 4, alignItems: 'center' },
+  emptyText: { ...typo.small, color: theme.sub, paddingVertical: 8 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
     backgroundColor: theme.card,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: theme.line,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     marginBottom: 8,
   },
   box: {
@@ -371,9 +509,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   boxDone: { backgroundColor: theme.ink, borderColor: theme.ink },
-  rowText: { ...typo.body, color: theme.ink },
   rowBody: { flex: 1, gap: 2 },
+  rowText: { ...typo.body, color: theme.ink },
   rowNote: { ...typo.small, color: theme.sub, fontWeight: '500' },
+  rowTextDone: { color: '#A9A493', textDecorationLine: 'line-through' },
+  rowIcon: { padding: 4 },
   priceChip: {
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -383,44 +523,6 @@ const styles = StyleSheet.create({
   priceChipDone: { backgroundColor: '#EDEAE0' },
   priceText: { ...typo.mono, color: theme.ink },
   priceTextDone: { color: '#B4AF9D' },
-  delBtn: { padding: 4 },
-  thumbRow: { flexDirection: 'row', gap: 8, paddingVertical: 2 },
-  thumbWrap: { width: 72, height: 72, borderRadius: 12, overflow: 'hidden' },
-  thumb: { width: '100%', height: '100%' },
-  thumbDel: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  thumbEdit: {
-    position: 'absolute',
-    top: 4,
-    left: 4,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  uploadRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    marginTop: 10,
-    paddingVertical: 9,
-    borderRadius: 12,
-    backgroundColor: theme.accentSoft,
-  },
-  uploadRowText: { ...typo.small, color: theme.ink, fontWeight: '800' },
-  rowTextDone: { color: '#A9A493', textDecorationLine: 'line-through' },
   inputBar: {
     flexDirection: 'row',
     gap: 8,
@@ -440,22 +542,12 @@ const styles = StyleSheet.create({
     color: theme.ink,
   },
   addBtn: {
+    width: 44,
     height: 44,
-    paddingHorizontal: 18,
     borderRadius: 12,
     backgroundColor: theme.ink,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  addBtnDisabled: { backgroundColor: '#C9C5B4' },
-  addBtnText: { ...typo.body, color: '#FFFFFF', fontWeight: '700' },
-  primaryBtn: {
-    marginTop: 16,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: theme.ink,
-  },
-  primaryBtnText: { color: '#FFFFFF', fontWeight: '700' },
+  addBtnOff: { backgroundColor: '#C9C5B4' },
 });

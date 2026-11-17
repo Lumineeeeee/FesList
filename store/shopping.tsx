@@ -11,6 +11,7 @@ import {
 } from 'react';
 
 import { SEED_ITEMS, type BuyItem, type Priority } from '@/data/items';
+import { migrateBoothId } from '@/lib/boothId';
 import { DEFAULT_EVENT, useEvents } from '@/store/events';
 
 const STORAGE_KEY = 'fes-list/items/v2';
@@ -36,7 +37,7 @@ type ShoppingValue = {
 const ShoppingContext = createContext<ShoppingValue | null>(null);
 
 function withEvent(item: BuyItem, eventId: string): BuyItem {
-  return { ...item, eventId };
+  return { ...item, eventId, boothId: migrateBoothId(item.boothId) };
 }
 
 export function ShoppingProvider({ children }: { children: ReactNode }) {

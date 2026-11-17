@@ -13,9 +13,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BOOTH_BY_ID } from '@/data/booths';
 import { PRIORITY_META, PRIORITY_ORDER, type Priority } from '@/data/items';
 import { normalizeBooth, normalizePrice } from '@/lib/boothInput';
+import { useHalls } from '@/store/halls';
 import { useShopping } from '@/store/shopping';
 import { theme, typo } from '@/theme';
 
@@ -30,8 +30,9 @@ export default function AddItemScreen() {
   const [price, setPrice] = useState('');
   const [priority, setPriority] = useState<Priority>('mid');
 
-  const boothId = useMemo(() => normalizeBooth(booth), [booth]);
-  const boothName = boothId ? BOOTH_BY_ID.get(boothId)?.name : undefined;
+  const { currentHall, boothName: nameOf } = useHalls();
+  const boothId = useMemo(() => normalizeBooth(booth, currentHall.id), [booth, currentHall.id]);
+  const boothName = boothId ? nameOf(boothId) : undefined;
   const boothInvalid = booth.trim().length > 0 && !boothId;
   const canSave = !!boothId && title.trim().length > 0;
 

@@ -14,9 +14,10 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BOOTH_BY_ID } from '@/data/booths';
 import { PRIORITY_META, PRIORITY_ORDER, type Priority } from '@/data/items';
 import { normalizeBooth, normalizePrice } from '@/lib/boothInput';
+import { cellOf, hallOfBooth } from '@/lib/boothId';
+import { useHalls } from '@/store/halls';
 import { useShopping } from '@/store/shopping';
 import { theme, typo } from '@/theme';
 
@@ -31,9 +32,11 @@ export default function EditItemScreen() {
     priority?: string;
   }>();
   const { update, remove } = useShopping();
+  const { boothName: nameOf } = useHalls();
 
   const itemId = typeof params.id === 'string' ? params.id : '';
-  const [booth, setBooth] = useState(typeof params.boothId === 'string' ? params.boothId : '');
+  const originalBooth = typeof params.boothId === 'string' ? params.boothId : '';
+  const [booth, setBooth] = useState(originalBooth ? cellOf(originalBooth) : '');
   const [title, setTitle] = useState(typeof params.title === 'string' ? params.title : '');
   const [price, setPrice] = useState(typeof params.price === 'string' ? params.price : '');
   const [priority, setPriority] = useState<Priority>(
@@ -42,8 +45,11 @@ export default function EditItemScreen() {
       : 'mid',
   );
 
-  const boothId = useMemo(() => normalizeBooth(booth), [booth]);
-  const boothName = boothId ? BOOTH_BY_ID.get(boothId)?.name : undefined;
+  const boothId = useMemo(
+    () => normalizeBooth(booth, hallOfBooth(originalBooth) ?? undefined),
+    [booth, originalBooth],
+  );
+  const boothName = boothId ? nameOf(boothId) : undefined;
   const boothInvalid = booth.trim().length > 0 && !boothId;
   const canSave = !!itemId && !!boothId && title.trim().length > 0;
 
