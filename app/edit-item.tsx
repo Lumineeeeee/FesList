@@ -112,7 +112,7 @@ export default function EditItemScreen() {
           {boothInvalid
             ? '认不出这个摊位号，格式是 A01–D09 或 OFF'
             : boothId
-              ? `${boothId}${boothName ? ` · ${boothName}` : ''}`
+              ? `${cellOf(boothId)}${boothName ? ` · ${boothName}` : ''}`
               : '大小写都行'}
         </Text>
 

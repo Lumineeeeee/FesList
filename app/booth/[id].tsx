@@ -184,7 +184,7 @@ export default function BoothScreen() {
 
         <Pressable
           style={styles.actionRow}
-          onPress={() => router.push({ pathname: '/upload', params: { booth: cellOf(id) } })}
+          onPress={() => router.push({ pathname: '/upload', params: { booth: id } })}
         >
           <Ionicons name="add-circle-outline" size={16} color={theme.ink} />
           <Text style={styles.actionText}>上传图片</Text>

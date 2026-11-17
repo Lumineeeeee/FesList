@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PRIORITY_META, PRIORITY_ORDER, type Priority } from '@/data/items';
 import { normalizeBooth, normalizePrice } from '@/lib/boothInput';
+import { cellOf, hallOfBooth } from '@/lib/boothId';
 import { useHalls } from '@/store/halls';
 import { useShopping } from '@/store/shopping';
 import { theme, typo } from '@/theme';
@@ -25,13 +26,19 @@ export default function AddItemScreen() {
   const params = useLocalSearchParams<{ booth?: string; title?: string }>();
   const { add } = useShopping();
 
-  const [booth, setBooth] = useState(typeof params.booth === 'string' ? params.booth : '');
+  const presetBooth = typeof params.booth === 'string' ? params.booth : '';
+  const presetHall = hallOfBooth(presetBooth);
+
+  const [booth, setBooth] = useState(presetBooth ? cellOf(presetBooth) : '');
   const [title, setTitle] = useState(typeof params.title === 'string' ? params.title : '');
   const [price, setPrice] = useState('');
   const [priority, setPriority] = useState<Priority>('mid');
 
   const { currentHall, boothName: nameOf } = useHalls();
-  const boothId = useMemo(() => normalizeBooth(booth, currentHall.id), [booth, currentHall.id]);
+  const boothId = useMemo(
+    () => normalizeBooth(booth, presetHall ?? currentHall.id),
+    [booth, presetHall, currentHall.id],
+  );
   const boothName = boothId ? nameOf(boothId) : undefined;
   const boothInvalid = booth.trim().length > 0 && !boothId;
   const canSave = !!boothId && title.trim().length > 0;
@@ -77,7 +84,7 @@ export default function AddItemScreen() {
           {boothInvalid
             ? '认不出这个摊位号，格式是 A01–D09 / OFF'
             : boothId
-              ? `${boothId}${boothName ? ` · ${boothName}` : ''}`
+              ? `${cellOf(boothId)}${boothName ? ` · ${boothName}` : ''}`
               : '大小写都行'}
         </Text>
 

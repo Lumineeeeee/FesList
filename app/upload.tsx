@@ -17,6 +17,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { normalizeBooth } from '@/lib/boothInput';
+import { cellOf, hallOfBooth } from '@/lib/boothId';
 import { promoNoun } from '@/lib/promoLabel';
 import { useHalls } from '@/store/halls';
 import { useUploads } from '@/store/uploads';
@@ -31,10 +32,11 @@ export default function UploadScreen() {
   const replaceId = typeof params.replace === 'string' ? params.replace : '';
   const isReplace = replaceId.length > 0;
   const presetBooth = typeof params.booth === 'string' ? params.booth : '';
+  const presetHall = hallOfBooth(presetBooth);
   const replaceTarget = isReplace ? uploads.find((u) => u.id === replaceId) : undefined;
 
   const [imageUri, setImageUri] = useState<string | null>(null);
-  const [booth, setBooth] = useState(presetBooth);
+  const [booth, setBooth] = useState(presetBooth ? cellOf(presetBooth) : '');
   const [title, setTitle] = useState(replaceTarget?.title ?? '');
   const [saving, setSaving] = useState(false);
 
@@ -66,7 +68,10 @@ export default function UploadScreen() {
   }, []);
 
   const { currentHall, boothName: nameOf } = useHalls();
-  const boothId = useMemo(() => normalizeBooth(booth, currentHall.id), [booth, currentHall.id]);
+  const boothId = useMemo(
+    () => normalizeBooth(booth, presetHall ?? currentHall.id),
+    [booth, presetHall, currentHall.id],
+  );
   const boothName = boothId ? nameOf(boothId) : undefined;
   const isMap = (boothId ?? replaceTarget?.boothId) === 'MAP';
   const noun = promoNoun(boothId ?? replaceTarget?.boothId);
@@ -161,7 +166,7 @@ export default function UploadScreen() {
               {boothInvalid
                 ? '认不出这个摊位号，格式是 A01–D09 / OFF / MAP'
                 : boothId
-                  ? `${boothId}${boothName ? ` · ${boothName}` : ''}`
+                  ? `${cellOf(boothId)}${boothName ? ` · ${boothName}` : ''}`
                   : '大小写都行，比如 a5 会补成 A05'}
             </Text>
 
