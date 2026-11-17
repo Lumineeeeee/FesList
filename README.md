@@ -10,7 +10,10 @@
 
 ### Web 版（本机运行，免安装）
 
-**[⬇ 下载 FesList-web.zip](https://github.com/Lumineeeeee/FesList/raw/main/release/FesList-web.zip)**（约 9 MB）
+**[⬇ 下载 FesList-web.zip](https://github.com/Lumineeeeee/FesList/raw/main/release/FesList-web.zip)**（约 3 MB）
+
+> 出厂是**空数据**：没有任何摊宣图、清单和摊位名，需要自己新建漫展后录入，或在「漫展」页用「导入」加载你自己的 `信息.zip` / `清单.json`。
+> 仓库之所以不带数据，是因为清单和摊宣图属于个人内容，不随代码分发。
 
 解压后是一个纯静态站点。因为浏览器对 `file://` 有安全限制，**直接双击 `index.html` 打不开**，需要在解压目录里起一个本地服务：
 
@@ -85,4 +88,4 @@ npx expo export --platform web    # 静态网页，产物在 dist/
 
 本项目是**个人自用工具**，与小红书、绝区零官方均无关联。
 
-仓库内 `assets/promo/` 下的摊宣图来自各社团/摊位公开发布的摊宣，**版权归原作者所有**，仅作为示例数据用于功能演示；如需使用请自行替换为本机导入的图片。
+仓库**不包含任何个人数据**：没有清单、没有摊宣图、没有场地图。想带图使用，把图片放进 `assets/promo/`（文件名 = 摊位号，如 `A05.png`，多张用 `B02-2.png`）后运行 `npm run gen:promo`，或直接用 App 的「导入」功能加载打包好的 `信息.zip`。
