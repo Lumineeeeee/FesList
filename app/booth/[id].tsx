@@ -6,7 +6,6 @@ import {
   Alert,
   Image,
   KeyboardAvoidingView,
-  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -20,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PriorityChip from '@/components/PriorityChip';
 import PromoViewer from '@/components/PromoViewer';
 import { cellOf, hallOfBooth, isSpecial } from '@/lib/boothId';
+import { normalizeUrl, openUrl } from '@/lib/openUrl';
 import { nextPriority, sortByPriority } from '@/lib/priority';
 import { useHalls } from '@/store/halls';
 import { useLinks } from '@/store/links';
@@ -74,7 +74,7 @@ export default function BoothScreen() {
 
   const submitLink = () => {
     if (!id || !linkUrl.trim()) return;
-    addLink(id, linkTitle, linkUrl);
+    addLink(id, linkTitle, normalizeUrl(linkUrl));
     setLinkTitle('');
     setLinkUrl('');
   };
@@ -221,7 +221,9 @@ export default function BoothScreen() {
           <View key={l.id} style={styles.linkRow}>
             <Pressable
               style={{ flex: 1 }}
-              onPress={() => Linking.openURL(l.url).catch(() => {})}
+              onPress={() => {
+                void openUrl(l.url);
+              }}
             >
               <Text style={styles.linkTitle} numberOfLines={1}>
                 {l.title}
@@ -230,6 +232,7 @@ export default function BoothScreen() {
                 {l.url}
               </Text>
             </Pressable>
+            <Ionicons name="open-outline" size={15} color={theme.sub} />
             <Pressable
               onPress={() => {
                 setLinkTitle(l.title);

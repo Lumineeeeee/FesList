@@ -4,7 +4,6 @@ import { useState } from 'react';
 import {
   Alert,
   Image,
-  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -20,6 +19,7 @@ import EventBar from '@/components/EventBar';
 import Fab from '@/components/Fab';
 import { OFFICIAL_BOOTH } from '@/data/booths';
 import { nextPriority, sortByPriority } from '@/lib/priority';
+import { normalizeUrl, openUrl } from '@/lib/openUrl';
 import { useBoothStats, useShopping } from '@/store/shopping';
 import { useEvents } from '@/store/events';
 import { useLinks } from '@/store/links';
@@ -124,7 +124,12 @@ export default function OfficialScreen() {
       <Text style={[styles.sectionLabel, { marginTop: 20 }]}>链接</Text>
       {offLinks.map((l) => (
         <View key={l.id} style={styles.linkRow}>
-          <Pressable style={{ flex: 1 }} onPress={() => Linking.openURL(l.url).catch(() => {})}>
+          <Pressable
+            style={{ flex: 1 }}
+            onPress={() => {
+              void openUrl(l.url);
+            }}
+          >
             <Text style={styles.linkTitle} numberOfLines={1}>
               {l.title}
             </Text>
@@ -132,6 +137,7 @@ export default function OfficialScreen() {
               {l.url}
             </Text>
           </Pressable>
+          <Ionicons name="open-outline" size={15} color={theme.sub} />
           <Pressable onPress={() => removeLink(l.id)} hitSlop={8} style={{ padding: 4 }}>
             <Ionicons name="close" size={15} color="#B79C92" />
           </Pressable>
@@ -156,7 +162,7 @@ export default function OfficialScreen() {
         <Pressable
           onPress={() => {
             if (!linkUrl.trim()) return;
-            addLink(OFF_ID, linkTitle, linkUrl);
+            addLink(OFF_ID, linkTitle, normalizeUrl(linkUrl));
             setLinkTitle('');
             setLinkUrl('');
           }}
