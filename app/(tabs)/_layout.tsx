@@ -25,7 +25,7 @@ export default function TabsLayout() {
         name="map"
         options={{
           title: '地图',
-          tabBarIcon: ({ color, size }) => <Ionicons name="map-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="map-outline" size={size} color={color as string} />,
         }}
       />
       <Tabs.Screen
@@ -33,7 +33,7 @@ export default function TabsLayout() {
         options={{
           title: '官方',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="storefront-outline" size={size} color={color} />
+            <Ionicons name="storefront-outline" size={size} color={color as string} />
           ),
         }}
       />
@@ -41,7 +41,7 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: '同人',
-          tabBarIcon: ({ color, size }) => <Ionicons name="grid-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="grid-outline" size={size} color={color as string} />,
         }}
       />
       <Tabs.Screen
@@ -49,7 +49,7 @@ export default function TabsLayout() {
         options={{
           title: '清单',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="list-outline" size={size} color={color} />
+            <Ionicons name="list-outline" size={size} color={color as string} />
           ),
         }}
       />

@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "scheme": "feslist",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "cn.fes.boothlist",
