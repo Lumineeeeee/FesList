@@ -10,7 +10,7 @@
 
 ### Web 版（本机运行，免安装）
 
-**[⬇ 下载 FesList-web.zip](./release/FesList-web.zip)**（约 9 MB）
+**[⬇ 下载 FesList-web.zip](https://github.com/Lumineeeeee/FesList/raw/main/release/FesList-web.zip)**（约 9 MB）
 
 解压后是一个纯静态站点。因为浏览器对 `file://` 有安全限制，**直接双击 `index.html` 打不开**，需要在解压目录里起一个本地服务：
 
