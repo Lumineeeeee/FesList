@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { hallSignature, type Hall } from '@/data/halls';
 import { exportInfo, exportItems, pickImport } from '@/lib/archive';
 import { saveImageFromBase64 } from '@/lib/imageStore';
+import { migrateBoothId } from '@/lib/boothId';
 import { useEvents, type FestivalEvent } from '@/store/events';
 import { useHalls } from '@/store/halls';
 import { useLinks } from '@/store/links';
@@ -31,7 +32,7 @@ export default function EventsScreen() {
   const { events, current, switchTo, create } = useEvents();
   const { allItems, replaceAll: replaceItems } = useShopping();
   const { allUploads, replaceAll: replaceUploads } = useUploads();
-  const { halls, replaceAll: replaceHalls } = useHalls();
+  const { halls, hallsOf, replaceAll: replaceHalls } = useHalls();
   const { allLinks, replaceAll: replaceLinks } = useLinks();
 
   const [name, setName] = useState('');
@@ -64,8 +65,7 @@ export default function EventsScreen() {
           createdAt: u.createdAt,
         }));
       const links = allLinks.filter((l) => l.eventId === e.id);
-      const isCurrent = e.id === current.id;
-      const r = await exportInfo(e, uploads, isCurrent ? halls : [], links);
+      const r = await exportInfo(e, uploads, hallsOf(e.id), links);
       Alert.alert('已导出', `${e.name}-信息.zip\n${r.images} 张图 · ${r.links} 个链接`);
     } catch (err) {
       Alert.alert('导出失败', String(err));
@@ -114,7 +114,7 @@ export default function EventsScreen() {
         imported.push({
           id: img.name,
           eventId: current.id,
-          boothId: m.boothId,
+          boothId: migrateBoothId(m.boothId),
           title: m.title,
           primary: m.primary,
           imageKey,
@@ -137,6 +137,7 @@ export default function EventsScreen() {
 
       if (mode === 'merge') {
         const byId = new Map<string, StoredUpload>(others.map((u) => [u.id, u]));
+        const titleKeys = new Set<string>();
         for (const u of allUploads.filter((x) => x.eventId === current.id)) {
           byId.set(u.id, {
             id: u.id,
@@ -148,8 +149,14 @@ export default function EventsScreen() {
             imageKey: u.imageKey,
             createdAt: u.createdAt,
           });
+          if (u.title) titleKeys.add(`${u.boothId}|${u.title}`);
         }
-        for (const u of imported) byId.set(u.id, u);
+        for (const u of imported) {
+          // 同一摊位 + 同名的图不重复导入
+          if (u.title && titleKeys.has(`${u.boothId}|${u.title}`)) continue;
+          titleKeys.add(u.title ? `${u.boothId}|${u.title}` : u.id);
+          byId.set(u.id, u);
+        }
         await replaceUploads([...byId.values()]);
       } else {
         await replaceUploads([...others, ...imported]);
@@ -157,12 +164,14 @@ export default function EventsScreen() {
 
       const incomingLinks = (info.links ?? []).map((l) => ({
         ...l,
+        boothId: migrateBoothId(l.boothId),
         eventId: current.id,
       }));
       if (mode === 'merge') {
-        const byId = new Map(allLinks.map((l) => [l.id, l]));
-        for (const l of incomingLinks) byId.set(l.id, l);
-        replaceLinks([...byId.values()]);
+        const byKey = new Map<string, (typeof allLinks)[number]>();
+        for (const l of allLinks) byKey.set(`${l.boothId}|${l.url}`, l);
+        for (const l of incomingLinks) byKey.set(`${l.boothId}|${l.url}`, l);
+        replaceLinks([...byKey.values()]);
       } else {
         const othersl = allLinks.filter((l) => l.eventId !== current.id);
         replaceLinks([...othersl, ...incomingLinks]);
@@ -188,9 +197,13 @@ export default function EventsScreen() {
       replaceItems([...others, ...incoming]);
       return;
     }
-    const byId = new Map(currentItems.map((i) => [i.id, i]));
-    for (const i of incoming) byId.set(i.id, i);
-    replaceItems([...others, ...byId.values()]);
+    // 融合：同摊位 + 同名 + 同价 视为同一条，文件里的覆盖本地的
+    const keyOf = (i: { boothId: string; title: string; price?: string }) =>
+      `${i.boothId}|${i.title}|${i.price ?? ''}`;
+    const byKey = new Map<string, (typeof currentItems)[number]>();
+    for (const i of currentItems) byKey.set(keyOf(i), i);
+    for (const i of incoming) byKey.set(keyOf(i), i);
+    replaceItems([...others, ...byKey.values()]);
   };
 
   const askMode = (

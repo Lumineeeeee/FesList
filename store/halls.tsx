@@ -27,6 +27,8 @@ type HallsValue = {
   setBoothName: (hallId: string, cell: string, name: string) => void;
   /** 找某个馆 */
   hallOf: (hallId: string) => Hall | undefined;
+  /** 任意漫展的馆（导出时用） */
+  hallsOf: (eventId: string) => Hall[];
   /** 用 booth key（h1:A05）取摊位名 */
   boothName: (boothId: string) => string;
   replaceAll: (next: Hall[]) => void;
@@ -160,6 +162,11 @@ export function HallsProvider({ children }: { children: ReactNode }) {
 
   const hallOf = useCallback((hallId: string) => halls.find((h) => h.id === hallId), [halls]);
 
+  const hallsOf = useCallback(
+    (eventId: string) => state.byEvent[eventId] ?? defaultHalls(),
+    [state.byEvent],
+  );
+
   const boothName = useCallback(
     (boothId: string) => {
       if (boothId === 'OFF') return '官方周边贩售区';
@@ -193,6 +200,7 @@ export function HallsProvider({ children }: { children: ReactNode }) {
       setLayout,
       setBoothName,
       hallOf,
+      hallsOf,
       boothName,
       replaceAll,
     }),
@@ -207,6 +215,7 @@ export function HallsProvider({ children }: { children: ReactNode }) {
       setLayout,
       setBoothName,
       hallOf,
+      hallsOf,
       boothName,
       replaceAll,
     ],
