@@ -2,50 +2,87 @@
 
 一个人用的漫展工具：把官方摊位表变成可点的网格，记下每个摊位要买什么、花了多少钱，摊宣图、场地图、摊位链接都放在一起。
 
-数据**全部保存在本机**，不联网、不注册、不上传。换设备靠导入导出。
+**所有数据都存在本机，不联网、不注册、不上传。**
+
+---
 
 ## 下载
 
-- **Android APK** → [Releases](../../releases) 页面下载 `FesList-android.apk`
-- **Web 版**（本地跑，无需安装）→ [Releases](../../releases) 下载 `FesList-web.zip`
+### Web 版（本机运行，免安装）
 
-> Web 版解压后是纯静态文件，因为浏览器限制，**直接双击 `index.html` 打不开**，需要在解压目录里起一个本地服务：
->
-> ```bash
-> python -m http.server 8080
-> ```
-> 然后浏览器打开 http://localhost:8080
->
-> （首次打开后数据存在浏览器的 IndexedDB 里，清缓存会丢，重要数据记得导出。）
+**[⬇ 下载 FesList-web.zip](./release/FesList-web.zip)**（约 9 MB）
 
-iOS 版走 TestFlight，暂不公开分发。
+解压后是一个纯静态站点。因为浏览器对 `file://` 有安全限制，**直接双击 `index.html` 打不开**，需要在解压目录里起一个本地服务：
+
+```bash
+# 任选一种
+python -m http.server 8080
+# 或
+npx serve -l 8080
+```
+
+然后浏览器访问 <http://localhost:8080>。
+
+> 想放在手机上用？手机浏览器直接开也行，但体验最好的是用电脑打开。
+>
+> 数据存在浏览器的 IndexedDB 里，**清缓存会丢**，重要数据记得在「漫展」页导出。
+
+iOS / Android 安装包暂不提供。
+
+---
 
 ## 功能
 
 - **同人**：按馆切换，A–D × 1–9 的摊位网格；有要买的摊位变黄，买完变黑
 - **官方**：官方周边的图、链接、清单
-- **地图**：场地图可上传多张，指定哪张优先展示
-- **清单**：按摊位分组，三级优先级（优先排 / 有点心动 / 随便看看），金额统计（无料与未标价不计）
+- **地图**：场地图可上传多张，指定哪张优先展示，支持双指缩放
+- **清单**：按摊位分组，三级优先级（优先排 / 有点心动 / 随便看看），自动统计预计 / 已花 / 未花（无料与未标价不计入）
 - **链接**：每个摊位可挂多个信息链接，点一下用浏览器打开
-- **多漫展**：可新建多个漫展，数据互相独立
-- **导入导出**：每场漫展一份 `信息.zip`（图 + 排布 + 链接）和一份 `清单.json`，导入支持覆盖或融合
+- **多漫展**：可新建多场，数据互相独立，顶部随时切换
+- **导入导出**：每场漫展一份 `信息.zip`（图 + 馆排布 + 链接）和一份 `清单.json`，导入支持**覆盖**或**融合**
+
+---
+
+## 数据格式
+
+导出文件名固定为 `<漫展名>-信息.zip` 和 `<漫展名>-清单.json`。
+
+`信息.zip` 内是：
+
+```
+info.json        # 漫展信息 + 馆排布 + 摊位名 + 图片清单 + 链接
+images/          # 所有摊宣图、场地图
+```
+
+融合的判定：**漫展名一致 + 馆排布一致**时才会出现「融合」选项，否则只能覆盖。
+
+---
 
 ## 本地开发
 
 ```bash
 npm install
-npx expo start --web      # 浏览器
+
+npx expo start --web      # 浏览器调试
 npx expo start --tunnel   # 手机上用 Expo Go 扫码
 ```
 
 ## 构建
 
 ```bash
-npx eas build -p android --profile preview-apk    # APK
-npx expo export --platform web                    # 静态网页，产物在 dist/
+npx expo export --platform web    # 静态网页，产物在 dist/
 ```
 
 ## 技术栈
 
-Expo SDK 58 · React Native 0.88 · expo-router · TypeScript
-数据层：AsyncStorage（记录）+ IndexedDB / 文件系统（图片）
+- Expo SDK 58 · React Native 0.88 · expo-router · TypeScript
+- 数据：AsyncStorage（记录）+ IndexedDB / 文件系统（图片）
+- 手势：react-native-gesture-handler + reanimated
+
+---
+
+## 说明
+
+本项目是**个人自用工具**，与小红书、绝区零官方均无关联。
+
+仓库内 `assets/promo/` 下的摊宣图来自各社团/摊位公开发布的摊宣，**版权归原作者所有**，仅作为示例数据用于功能演示；如需使用请自行替换为本机导入的图片。

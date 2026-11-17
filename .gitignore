@@ -2,6 +2,11 @@ node_modules/
 .expo/
 dist/
 web-build/
+
+# 原生工程由 expo prebuild 生成，不入库
+/android
+/ios
+
 expo-env.d.ts
 *.orig.*
 *.jks
