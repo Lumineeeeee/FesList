@@ -1,7 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  Image,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import PromoViewer from '@/components/PromoViewer';
@@ -12,6 +22,7 @@ import { OFFICIAL_BOOTH } from '@/data/booths';
 import { nextPriority, sortByPriority } from '@/lib/priority';
 import { useBoothStats, useShopping } from '@/store/shopping';
 import { useEvents } from '@/store/events';
+import { useLinks } from '@/store/links';
 import { useUploads } from '@/store/uploads';
 import { theme, typo } from '@/theme';
 
@@ -26,12 +37,18 @@ export default function OfficialScreen() {
   const { byBooth } = useBoothStats();
   const [viewer, setViewer] = useState<number | null>(null);
 
-  const officialUploads = uploads.filter((u) => u.boothId === OFF_ID);
-  const posters = officialUploads.map((u) => ({ uri: u.imageUri }));
-  const mine = sortByPriority(
-    items.filter((it) => it.boothId === OFF_ID),
-    (x) => x.title,
-  );
+  const { officialUploads, posters, mine } = {
+    officialUploads: uploads.filter((u) => u.boothId === OFF_ID),
+    posters: uploads.filter((u) => u.boothId === OFF_ID).map((u) => ({ uri: u.imageUri })),
+    mine: sortByPriority(
+      items.filter((it) => it.boothId === OFF_ID),
+      (x) => x.title,
+    ),
+  };
+  const { linksOf, add: addLink, remove: removeLink } = useLinks();
+  const offLinks = linksOf(OFF_ID);
+  const [linkTitle, setLinkTitle] = useState('');
+  const [linkUrl, setLinkUrl] = useState('');
   const stat = byBooth.get(OFF_ID);
 
   const confirmDelete = (id: string, title: string) => {
@@ -103,6 +120,51 @@ export default function OfficialScreen() {
         <Ionicons name="add-circle-outline" size={16} color={theme.ink} />
         <Text style={styles.uploadRowText}>上传 / 更换情报</Text>
       </Pressable>
+
+      <Text style={[styles.sectionLabel, { marginTop: 20 }]}>链接</Text>
+      {offLinks.map((l) => (
+        <View key={l.id} style={styles.linkRow}>
+          <Pressable style={{ flex: 1 }} onPress={() => Linking.openURL(l.url).catch(() => {})}>
+            <Text style={styles.linkTitle} numberOfLines={1}>
+              {l.title}
+            </Text>
+            <Text style={styles.linkUrl} numberOfLines={1}>
+              {l.url}
+            </Text>
+          </Pressable>
+          <Pressable onPress={() => removeLink(l.id)} hitSlop={8} style={{ padding: 4 }}>
+            <Ionicons name="close" size={15} color="#B79C92" />
+          </Pressable>
+        </View>
+      ))}
+      <View style={styles.linkForm}>
+        <TextInput
+          value={linkTitle}
+          onChangeText={setLinkTitle}
+          placeholder="名称"
+          placeholderTextColor="#B0AB99"
+          style={[styles.linkInput, { flex: 1 }]}
+        />
+        <TextInput
+          value={linkUrl}
+          onChangeText={setLinkUrl}
+          placeholder="https://…"
+          placeholderTextColor="#B0AB99"
+          style={[styles.linkInput, { flex: 1.6 }]}
+          autoCapitalize="none"
+        />
+        <Pressable
+          onPress={() => {
+            if (!linkUrl.trim()) return;
+            addLink(OFF_ID, linkTitle, linkUrl);
+            setLinkTitle('');
+            setLinkUrl('');
+          }}
+          style={[styles.linkAdd, !linkUrl.trim() && { opacity: 0.4 }]}
+        >
+          <Ionicons name="add" size={18} color="#FFFFFF" />
+        </Pressable>
+      </View>
 
       <Text style={[styles.sectionLabel, { marginTop: 20 }]}>要买</Text>
       {mine.length === 0 ? (
@@ -296,4 +358,38 @@ const styles = StyleSheet.create({
   priceChipDone: { backgroundColor: '#EDEAE0' },
   priceText: { ...typo.mono, color: theme.ink },
   priceTextDone: { color: '#B4AF9D' },
+  linkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: theme.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.line,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginHorizontal: 16,
+    marginBottom: 8,
+  },
+  linkTitle: { ...typo.body, color: theme.ink, fontWeight: '700' },
+  linkUrl: { ...typo.small, color: theme.sub, marginTop: 2 },
+  linkForm: { flexDirection: 'row', gap: 8, marginHorizontal: 16, alignItems: 'center' },
+  linkInput: {
+    height: 42,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    backgroundColor: theme.card,
+    borderWidth: 1,
+    borderColor: theme.line,
+    ...typo.small,
+    color: theme.ink,
+  },
+  linkAdd: {
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+    backgroundColor: theme.ink,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

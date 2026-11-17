@@ -4,34 +4,38 @@ import * as Sharing from 'expo-sharing';
 import JSZip from 'jszip';
 import { Platform } from 'react-native';
 
+import type { Hall } from '@/data/halls';
 import type { BuyItem } from '@/data/items';
 import type { FestivalEvent } from '@/store/events';
+import type { InfoLink } from '@/store/links';
 import type { StoredUpload } from '@/store/uploads';
 import { readImageBase64 } from '@/lib/imageStore';
 
 export const INFO_TYPE = 'fes-event-info';
 export const ITEMS_TYPE = 'fes-event-items';
-const VERSION = 1;
+const VERSION = 2;
 
 export type InfoJson = {
   type: typeof INFO_TYPE;
   version: number;
   event: Pick<FestivalEvent, 'id' | 'name' | 'date' | 'venue'>;
-  images: Array<{
+  halls: Hall[];
+  images: {
     id: string;
     boothId: string;
     title: string;
     primary?: boolean;
     createdAt: number;
     file: string;
-  }>;
+  }[];
+  links: Pick<InfoLink, 'id' | 'boothId' | 'title' | 'url'>[];
 };
 
 export type ItemsJson = {
   type: typeof ITEMS_TYPE;
   version: number;
   event: Pick<FestivalEvent, 'id' | 'name' | 'date' | 'venue'>;
-  items: Array<Omit<BuyItem, 'eventId'>>;
+  items: Omit<BuyItem, 'eventId'>[];
 };
 
 function safeName(name: string): string {
@@ -43,6 +47,18 @@ function base64ToBytes(b64: string): Uint8Array {
   const out = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i += 1) out[i] = bin.charCodeAt(i);
   return out;
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let bin = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    bin += String.fromCharCode.apply(
+      null,
+      Array.from(bytes.subarray(i, i + chunk)) as unknown as number[],
+    );
+  }
+  return btoa(bin);
 }
 
 async function writeOut(name: string, data: Uint8Array | string, mime: string) {
@@ -63,9 +79,7 @@ async function writeOut(name: string, data: Uint8Array | string, mime: string) {
   }
 
   const b64 =
-    typeof data === 'string'
-      ? btoa(unescape(encodeURIComponent(data)))
-      : bytesToBase64(data);
+    typeof data === 'string' ? btoa(unescape(encodeURIComponent(data))) : bytesToBase64(data);
   const dir = FileSystem.cacheDirectory ?? '';
   const path = `${dir}${name}`;
   await FileSystem.writeAsStringAsync(path, b64, { encoding: 'base64' } as never);
@@ -74,20 +88,13 @@ async function writeOut(name: string, data: Uint8Array | string, mime: string) {
   }
 }
 
-function bytesToBase64(bytes: Uint8Array): string {
-  let bin = '';
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    bin += String.fromCharCode.apply(
-      null,
-      Array.from(bytes.subarray(i, i + chunk)) as unknown as number[],
-    );
-  }
-  return btoa(bin);
-}
-
-/** 导出「信息」压缩包：info.json + images/ */
-export async function exportInfo(event: FestivalEvent, uploads: StoredUpload[]) {
+/** 导出「信息」压缩包：info.json（含排布 + 链接）+ images/ */
+export async function exportInfo(
+  event: FestivalEvent,
+  uploads: StoredUpload[],
+  halls: Hall[],
+  links: InfoLink[],
+) {
   const zip = new JSZip();
   const images: InfoJson['images'] = [];
 
@@ -111,13 +118,15 @@ export async function exportInfo(event: FestivalEvent, uploads: StoredUpload[]) 
     type: INFO_TYPE,
     version: VERSION,
     event: { id: event.id, name: event.name, date: event.date, venue: event.venue },
+    halls,
     images,
+    links: links.map((l) => ({ id: l.id, boothId: l.boothId, title: l.title, url: l.url })),
   };
   zip.file('info.json', JSON.stringify(info, null, 2));
 
   const bytes = await zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
   await writeOut(`${safeName(event.name)}-信息.zip`, bytes, 'application/zip');
-  return { images: images.length };
+  return { images: images.length, links: info.links.length, halls: halls.length };
 }
 
 /** 导出「清单」JSON */
@@ -137,7 +146,11 @@ export async function exportItems(event: FestivalEvent, items: BuyItem[]) {
 }
 
 export type ImportResult =
-  | { kind: 'info'; info: InfoJson; images: Array<{ name: string; base64: string }> }
+  | {
+      kind: 'info';
+      info: InfoJson;
+      images: { name: string; base64: string }[];
+    }
   | { kind: 'items'; items: ItemsJson };
 
 /** 选一个 zip/json 读进来 */
@@ -152,18 +165,14 @@ export async function pickImport(): Promise<ImportResult | null> {
   const asset = res.assets[0];
   const name = asset.name ?? '';
 
-  // Web：直接读 File
   if (Platform.OS === 'web' && (asset as { file?: File }).file) {
     const file = (asset as { file: File }).file;
     if (name.endsWith('.json')) {
-      const text = await file.text();
-      return parseItems(text);
+      return parseItems(await file.text());
     }
-    const buf = new Uint8Array(await file.arrayBuffer());
-    return readZip(buf);
+    return readZip(new Uint8Array(await file.arrayBuffer()));
   }
 
-  // 原生：base64
   const b64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: 'base64' } as never);
   if (name.endsWith('.json')) {
     return parseItems(decodeURIComponent(escape(atob(b64))));
@@ -184,8 +193,8 @@ async function readZip(bytes: Uint8Array): Promise<ImportResult> {
   const info = JSON.parse(await infoFile.async('string')) as InfoJson;
   if (info.type !== INFO_TYPE) throw new Error('这不是「信息」压缩包');
 
-  const images: Array<{ name: string; base64: string }> = [];
-  for (const item of info.images) {
+  const images: { name: string; base64: string }[] = [];
+  for (const item of info.images ?? []) {
     const f = zip.file(item.file);
     if (!f) continue;
     images.push({ name: item.id, base64: await f.async('base64') });

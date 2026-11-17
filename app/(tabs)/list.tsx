@@ -6,7 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import PriorityChip from '@/components/PriorityChip';
 import EventBar from '@/components/EventBar';
-import { BOOTH_BY_ID } from '@/data/booths';
+import { cellOf, hallOfBooth } from '@/lib/boothId';
+import { useHalls } from '@/store/halls';
 import { nextPriority, rankOf, sortByPriority } from '@/lib/priority';
 import { formatMoney, moneyStats } from '@/lib/money';
 import { useBoothStats, useShopping } from '@/store/shopping';
@@ -24,6 +25,7 @@ export default function ListScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { items, toggle, remove, update } = useShopping();
+  const { halls, currentHall, boothName } = useHalls();
   const { total, done } = useBoothStats();
   const [filter, setFilter] = useState<Filter>('all');
 
@@ -40,12 +42,17 @@ export default function ListScreen() {
     return [...map.entries()]
       .map(([boothId, list]) => ({
         boothId,
-        booth: BOOTH_BY_ID.get(boothId),
+        cell: cellOf(boothId),
+        hallTag: (() => {
+          const hid = hallOfBooth(boothId);
+          const h = hid ? halls.find((x) => x.id === hid) : undefined;
+          return h && h.id !== currentHall.id ? h.name : '';
+        })(),
         rank: Math.min(...list.map((i) => rankOf(i.priority))),
         list: sortByPriority(list, (x) => x.title),
       }))
       .sort((a, b) => (a.rank !== b.rank ? a.rank - b.rank : a.boothId.localeCompare(b.boothId)));
-  }, [items, filter]);
+  }, [items, filter, halls, currentHall.id]);
 
   const pct = total === 0 ? 0 : Math.round((done / total) * 100);
   const money = useMemo(() => moneyStats(items), [items]);
@@ -119,18 +126,24 @@ export default function ListScreen() {
           </Text>
         </View>
       ) : (
-        groups.map(({ boothId, booth, list }) => (
+        groups.map(({ boothId, cell, hallTag, list }) => (
           <View key={boothId} style={styles.group}>
             <Pressable
               style={styles.groupHead}
-              onPress={() => router.push({ pathname: '/booth/[id]', params: { id: boothId } })}
+              onPress={() =>
+                router.push({
+                  pathname: '/booth/[id]',
+                  params: { id: encodeURIComponent(boothId) },
+                })
+              }
             >
               <View style={styles.boothChip}>
-                <Text style={styles.boothChipText}>{boothId}</Text>
+                <Text style={styles.boothChipText}>{cell}</Text>
               </View>
               <Text style={styles.boothName} numberOfLines={1}>
-                {booth?.name ?? '未知摊位'}
+                {boothName(boothId) || '未命名摊位'}
               </Text>
+              {!!hallTag && <Text style={styles.hallTag}>{hallTag}</Text>}
               <Ionicons name="chevron-forward" size={15} color="#B4AF9D" />
             </Pressable>
 
@@ -255,6 +268,7 @@ const styles = StyleSheet.create({
   },
   boothChipText: { ...typo.mono, color: theme.ink },
   boothName: { ...typo.body, color: theme.ink, fontWeight: '700', flex: 1 },
+  hallTag: { ...typo.small, color: '#A29D8C' },
   item: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9 },
   delBtn: { padding: 4 },
   box: {
