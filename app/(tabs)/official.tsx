@@ -166,14 +166,15 @@ export default function OfficialScreen() {
       <PromoViewer
         visible={viewer !== null}
         sources={viewer !== null ? [posters[viewer]] : undefined}
-        title={`官方周边 · 贩售商品 ${viewer === 0 ? '①' : '②'}`}
+        title={`官方周边 · 贩售商品 ${(viewer ?? 0) + 1}`}
+        boothId={OFF_ID}
         onClose={() => setViewer(null)}
       />
       </ScrollView>
 
       <Fab
-        onPress={() => router.push({ pathname: '/upload', params: { booth: 'OFF', mode: 'item' } })}
-        label="添加官方清单"
+        onPress={() => router.push({ pathname: '/add-item', params: { booth: OFF_ID } })}
+        label="添加官方购买项"
       />
     </View>
   );

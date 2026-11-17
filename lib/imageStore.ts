@@ -40,3 +40,16 @@ export async function readImageBase64(key: string): Promise<string | null> {
     return null;
   }
 }
+
+/** 从 base64 写成本地文件，返回 key（导入压缩包时用） */
+export async function saveImageFromBase64(id: string, base64: string): Promise<string> {
+  const folder = `${FileSystem.documentDirectory ?? ''}promo/`;
+  try {
+    await FileSystem.makeDirectoryAsync(folder, { intermediates: true });
+  } catch {
+    // 已存在
+  }
+  const dest = `${folder}${id}.jpg`;
+  await FileSystem.writeAsStringAsync(dest, base64, { encoding: 'base64' } as never);
+  return dest;
+}

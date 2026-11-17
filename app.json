@@ -32,11 +32,11 @@
         {
           "photosPermission": "选择摊宣图、地图时需要用相册里的图片"
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
+      "typedRoutes": true
     },
     "extra": {
       "router": {},

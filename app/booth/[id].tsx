@@ -273,6 +273,7 @@ export default function BoothScreen() {
         visible={viewerOpen}
         sources={promos}
         title={`${booth.id} · ${booth.name}`}
+        boothId={booth.id}
         onClose={() => setViewerOpen(false)}
       />
     </KeyboardAvoidingView>

@@ -88,3 +88,13 @@ export async function readImageBase64(key: string): Promise<string | null> {
     reader.readAsDataURL(blob);
   });
 }
+
+/** 从 base64 存进 IndexedDB，返回 key（导入压缩包时用） */
+export async function saveImageFromBase64(id: string, base64: string): Promise<string> {
+  const res = await fetch(`data:image/jpeg;base64,${base64}`);
+  const blob = await res.blob();
+  const db = await openDb();
+  await put(db, id, blob);
+  db.close();
+  return `${PREFIX}${id}`;
+}

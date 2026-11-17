@@ -17,28 +17,25 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BOOTH_BY_ID } from '@/data/booths';
-import { normalizeBooth, normalizePrice } from '@/lib/boothInput';
+import { normalizeBooth } from '@/lib/boothInput';
 import { promoNoun } from '@/lib/promoLabel';
-import { useShopping } from '@/store/shopping';
 import { useUploads } from '@/store/uploads';
 import { theme, typo } from '@/theme';
 
 export default function UploadScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const params = useLocalSearchParams<{ booth?: string; mode?: string; replace?: string }>();
+  const params = useLocalSearchParams<{ booth?: string; replace?: string }>();
   const { add, replace: replaceUpload, uploads } = useUploads();
-  const { add: addItem } = useShopping();
 
-  const isItemMode = params.mode === 'item';
   const replaceId = typeof params.replace === 'string' ? params.replace : '';
   const isReplace = replaceId.length > 0;
   const presetBooth = typeof params.booth === 'string' ? params.booth : '';
   const replaceTarget = isReplace ? uploads.find((u) => u.id === replaceId) : undefined;
+
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [booth, setBooth] = useState(presetBooth);
-  const [title, setTitle] = useState('');
-  const [price, setPrice] = useState('');
+  const [title, setTitle] = useState(replaceTarget?.title ?? '');
   const [saving, setSaving] = useState(false);
 
   // Web：直接 Ctrl+V 粘图
@@ -70,12 +67,13 @@ export default function UploadScreen() {
 
   const boothId = useMemo(() => normalizeBooth(booth), [booth]);
   const boothName = boothId ? BOOTH_BY_ID.get(boothId)?.name : undefined;
-  const isMap = boothId === 'MAP';
+  const isMap = (boothId ?? replaceTarget?.boothId) === 'MAP';
   const noun = promoNoun(boothId ?? replaceTarget?.boothId);
   const boothInvalid = booth.trim().length > 0 && !boothId;
+
   const canSave = isReplace
     ? !!imageUri && !saving
-    : (isItemMode || !!imageUri) && !!boothId && title.trim().length > 0 && !saving;
+    : !!imageUri && !!boothId && !saving;
 
   const pickImage = async () => {
     const res = await ImagePicker.launchImageLibraryAsync({
@@ -88,45 +86,20 @@ export default function UploadScreen() {
     }
   };
 
-  const pasteImage = async () => {
-    try {
-      // 只在按下时才加载，Web 端根本不引这个模块
-      const Clipboard = await import('expo-clipboard');
-      const image = await Clipboard.getImageAsync({ format: 'jpeg' });
-      if (!image?.data) {
-        Alert.alert('剪贴板里没有图片', '先复制一张图，再点这里');
-        return;
-      }
-      // data 已经带 data:image/jpeg;base64, 前缀
-      setImageUri(image.data);
-    } catch {
-      Alert.alert('粘贴失败', '这台设备读不了剪贴板图片，用「选图」吧');
-    }
-  };
-
   const save = async () => {
-    if (isReplace) {
-      if (!imageUri) return;
-      setSaving(true);
-      try {
-        await replaceUpload(replaceId, imageUri);
-        router.back();
-      } catch (e) {
-        setSaving(false);
-        Alert.alert('更换失败', String(e));
-      }
-      return;
-    }
-
-    if (!canSave || !boothId) return;
+    if (!canSave) return;
     setSaving(true);
     try {
-      const cleanPrice = normalizePrice(price);
-      if (!isItemMode && imageUri) {
-        await add({ boothId, title: title.trim(), price: cleanPrice, imageUri });
+      if (isReplace) {
+        if (!imageUri) return;
+        await replaceUpload(replaceId, imageUri);
+      } else {
+        if (!imageUri || !boothId) return;
+        const finalTitle = isMap
+          ? title.trim() || '未命名地图'
+          : title.trim();
+        await add({ boothId, title: finalTitle, imageUri });
       }
-      // 地图只是图，不进购物清单
-      if (!isMap) addItem(boothId, title.trim(), cleanPrice);
       router.back();
     } catch (e) {
       setSaving(false);
@@ -148,22 +121,16 @@ export default function UploadScreen() {
         </View>
         <View style={styles.head}>
           <Text style={styles.title}>
-            {isReplace ? `更换${noun.one}` : isItemMode ? '添加清单' : `上传${noun.one}`}
+            {isReplace ? `更换${noun.one}` : `上传${noun.one}`}
           </Text>
           <Text style={styles.sub}>
-            {isReplace
-              ? '重新选一张图替换掉原来那张'
-              : isItemMode
-                ? '摊位 + 名称 + 价格，存进清单'
-                : `图片 + 摊位 + 名称${isMap ? '' : ' + 价格'}，保存后会自动进清单`}
+            {isReplace ? '重新选一张图替换掉原来那张' : '只添加图片，不会动购买清单'}
           </Text>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-        {!isItemMode && (
-          <>
-            <Pressable style={styles.picker} onPress={pickImage}>
+        <Pressable style={styles.picker} onPress={pickImage}>
           {imageUri ? (
             <Image source={{ uri: imageUri }} style={styles.preview} resizeMode="cover" />
           ) : (
@@ -176,68 +143,36 @@ export default function UploadScreen() {
           )}
         </Pressable>
 
-        <View style={styles.actions}>
-          {imageUri && (
-            <Pressable onPress={pickImage} style={styles.actionBtn}>
-              <Ionicons name="refresh-outline" size={13} color={theme.sub} />
-              <Text style={styles.actionText}>换一张</Text>
-            </Pressable>
-          )}
-          {Platform.OS !== 'web' && (
-            <Pressable onPress={pasteImage} style={styles.actionBtn}>
-              <Ionicons name="clipboard-outline" size={13} color={theme.sub} />
-              <Text style={styles.actionText}>粘贴</Text>
-            </Pressable>
-          )}
-        </View>
-          </>
-        )}
-
         {!isReplace && (
           <>
             <Field label="摊位">
-          <TextInput
-            value={booth}
-            onChangeText={setBooth}
-            placeholder="A05 / b09 / OFF"
-            placeholderTextColor="#B0AB99"
-            style={styles.input}
-            autoCapitalize="characters"
-            autoCorrect={false}
-          />
-        </Field>
-        <Text style={[styles.hint, boothInvalid && styles.hintBad]}>
-          {boothInvalid
-            ? '认不出这个摊位号，格式是 A01–D09 或 OFF'
-            : boothId
-              ? `${boothId}${boothName ? ` · ${boothName}` : ''}`
-              : '大小写都行，比如 a5 会补成 A05'}
-        </Text>
-
-        <Field label={isMap ? '地图名称' : '名称'}>
-          <TextInput
-            value={title}
-            onChangeText={setTitle}
-            placeholder={isMap ? '4 号馆' : '蕾米立牌'}
-            placeholderTextColor="#B0AB99"
-            style={styles.input}
-          />
-        </Field>
-
-        {!isMap && (
-          <>
-            <Field label="价格">
               <TextInput
-                value={price}
-                onChangeText={setPrice}
-                placeholder="35 / ¥35 / 无料"
+                value={booth}
+                onChangeText={setBooth}
+                placeholder="A05 / b09 / OFF / MAP"
+                placeholderTextColor="#B0AB99"
+                style={styles.input}
+                autoCapitalize="characters"
+                autoCorrect={false}
+              />
+            </Field>
+            <Text style={[styles.hint, boothInvalid && styles.hintBad]}>
+              {boothInvalid
+                ? '认不出这个摊位号，格式是 A01–D09 / OFF / MAP'
+                : boothId
+                  ? `${boothId}${boothName ? ` · ${boothName}` : ''}`
+                  : '大小写都行，比如 a5 会补成 A05'}
+            </Text>
+
+            <Field label={isMap ? '地图名称' : '备注名（可选）'}>
+              <TextInput
+                value={title}
+                onChangeText={setTitle}
+                placeholder={isMap ? '4 号馆' : '可不填'}
                 placeholderTextColor="#B0AB99"
                 style={styles.input}
               />
             </Field>
-            <Text style={styles.hint}>只填数字会自动加 ¥；留空就不显示价格</Text>
-          </>
-        )}
           </>
         )}
       </ScrollView>
@@ -283,7 +218,7 @@ const styles = StyleSheet.create({
   sub: { ...typo.small, color: theme.sub, marginTop: 5 },
   body: { padding: 16, paddingBottom: 24 },
   picker: {
-    height: 220,
+    height: 240,
     borderRadius: 16,
     backgroundColor: '#E9E6DA',
     borderWidth: 1,
@@ -296,9 +231,6 @@ const styles = StyleSheet.create({
   pickerEmpty: { alignItems: 'center', gap: 6, paddingHorizontal: 24 },
   pickerText: { ...typo.small, color: '#A29D8C', textAlign: 'center' },
   preview: { width: '100%', height: '100%' },
-  actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 14, marginTop: 8 },
-  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  actionText: { ...typo.small, color: theme.sub },
   field: { marginTop: 18 },
   fieldLabel: { ...typo.mono, color: theme.sub, marginBottom: 6 },
   input: {
